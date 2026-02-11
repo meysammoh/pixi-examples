@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Texture, Filter, GlProgram, defaultFilterVert, MeshRope, Point, Text } from 'pixi.js';
-import { Howl, Howler } from 'howler';
+import { Howl } from 'howler';
 import { SceneManager, type IScene } from '../SceneManager';
 import { createBackButton } from '../ui/BackButton';
 
@@ -128,16 +128,14 @@ export class SeedsScene extends Container implements IScene {
     const gTrail = new Graphics().rect(0, 0, 20, 10).fill(0xFFFFFF);
     this.texTrail = SceneManager.app.renderer.generateTexture(gTrail);
 
-    // Audio (using fire_loop as placeholder)
+    // Audio
     this.sfxExplode = new Howl({
-      src: ['assets/sfx/fire_loop.webm', 'assets/sfx/fire_loop.mp3'],
+      src: ['assets/sfx/explosion.webm', 'assets/sfx/explosion.mp3'],
       volume: 0.5
     });
 
     // Pointer events
     this.waterBg.on('pointerdown', (e) => {
-      if (Howler.ctx && Howler.ctx.state === 'suspended') Howler.ctx.resume();
-
       this.magnetActive = true;
       this.magnetX = e.global.x;
       this.magnetY = e.global.y;
@@ -251,8 +249,7 @@ export class SeedsScene extends Container implements IScene {
 
     // Explosion when 10+ gathered
     if (gatheredCount >= 10) {
-      const id = this.sfxExplode.play();
-      this.sfxExplode.rate(0.8 + Math.random() * 0.4, id);
+      this.sfxExplode.play();
 
       for (const s of gatheredSeeds) {
         s.state = 'EXPLODED';

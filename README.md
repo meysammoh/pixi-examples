@@ -1,12 +1,13 @@
 # Interactive PixiJS Demo
 
-A collection of interactive demos built with PixiJS v8 and TypeScript.
+A collection of interactive demos built with PixiJS v8 and TypeScript, showcasing various game development techniques.
 
 ## Demos
 
-- **Ace of Shadows** - Animated card deck with smooth transitions
-- **Magic Words** - Text rendering system with inline emoji support
-- **Phoenix Flame** - Particle-based fire effect
+- **Ace of Shadows** - Animated card deck with smooth GSAP transitions
+- **Magic Words** - Dialog system with dynamic avatar/emoji loading
+- **Phoenix Flame** - Particle-based fire effect with custom shaders
+- **Seeds** - Physics simulation with water shader, magnet mechanics, and explosion effects
 
 ## Tech Stack
 
@@ -31,3 +32,4 @@ npm run build
 
 ## Live Demo
 
+https://pixi-examples.vercel.app/
