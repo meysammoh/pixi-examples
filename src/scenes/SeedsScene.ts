@@ -128,9 +128,9 @@ export class SeedsScene extends Container implements IScene {
     const gTrail = new Graphics().rect(0, 0, 20, 10).fill(0xFFFFFF);
     this.texTrail = SceneManager.app.renderer.generateTexture(gTrail);
 
-    // Audio
+    // Audio (using fire_loop as placeholder)
     this.sfxExplode = new Howl({
-      src: ['explosion.webm', 'explosion.mp3'],
+      src: ['assets/sfx/fire_loop.webm', 'assets/sfx/fire_loop.mp3'],
       volume: 0.5
     });
 
