@@ -7,7 +7,7 @@ export const manifest: AssetsManifest = {
       assets: [
         {
           alias: 'logo',
-          src: 'assets/logo.svg',
+          src: 'assets/logo.png',
         },
       ],
     },
