@@ -306,7 +306,7 @@ export class MagicWordsScene extends Container implements IScene {
               val.destroy(true);
             }
           } catch (e) {}
-          try { Assets.cache.delete(alias); } catch (e) {}
+          try { (Assets.cache as any).delete?.(alias) ?? ((Assets.cache as any).remove?.(alias)); } catch (e) {}
         }
       }
     } catch (e) {}

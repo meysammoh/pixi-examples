@@ -62,6 +62,8 @@ export class SeedsScene extends Container implements IScene {
   private texSeed!: Texture;
   private texTrail!: Texture;
   private sfxExplode: Howl;
+  // null = unknown/loading, true = available, false = failed
+  private _sfxAvailable: boolean | null = null;
 
   private time = 0;
   private magnetActive = false;
@@ -136,11 +138,16 @@ export class SeedsScene extends Container implements IScene {
     const gTrail = new Graphics().rect(0, 0, 20, 10).fill(0xFFFFFF);
     this.texTrail = SceneManager.app.renderer.generateTexture(gTrail);
 
-    // Audio
+    // Audio (do not preload to avoid repeated network retries if server is down)
     this.sfxExplode = new Howl({
       src: ['assets/sfx/explosion.webm', 'assets/sfx/explosion.mp3'],
-      volume: 0.5
+      volume: 0.5,
+      preload: false,
+      onload: () => { this._sfxAvailable = true; },
+      onloaderror: () => { this._sfxAvailable = false; }
     });
+    // Try to start loading the sound; availability will be set via callbacks.
+    try { this.sfxExplode.load(); } catch (e) {}
 
     // Pointer events
     this.waterBg.eventMode = 'static';
@@ -303,7 +310,6 @@ export class SeedsScene extends Container implements IScene {
           s.y = this.GROUND_LEVEL;
           s.state = 'STACKED';
         }
-
         // Stack on top of other seeds
         for (const other of this.seeds) {
           if (other === s || other.state !== 'STACKED') continue;
@@ -320,7 +326,11 @@ export class SeedsScene extends Container implements IScene {
 
     // Explosion when 10+ gathered
     if (gatheredCount >= 10) {
-      this.sfxExplode.play();
+      if (this._sfxAvailable === false) {
+        // known-bad: skip
+      } else {
+        try { this.sfxExplode.play(); } catch (e) {}
+      }
 
       for (const s of gatheredSeeds) {
         s.state = 'EXPLODED';
@@ -357,7 +367,11 @@ export class SeedsScene extends Container implements IScene {
 
       // Explode all remaining seeds to create a visual cleanup
       try {
-        this.sfxExplode.play();
+        if (this._sfxAvailable === false) {
+          // skip
+        } else {
+          this.sfxExplode.play();
+        }
       } catch (e) {}
 
       for (const s of this.seeds) {
