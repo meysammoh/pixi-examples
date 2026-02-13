@@ -210,7 +210,13 @@ export class Main {
         }
 
         // Destroy the Pixi application
-        this.app.destroy(true, { children: true, texture: true });
+            // Ensure scenes and ticker are cleaned up before destroying the app
+            try {
+                SceneManager.shutdown();
+            } catch (e) {
+                // ignore
+            }
+            this.app.destroy(true, { children: true, texture: true });
     }
 }
 

@@ -140,7 +140,15 @@ export class LoadingScene extends Container implements IScene {
     if (this._logo) {
       gsap.killTweensOf(this._logo);
       gsap.killTweensOf(this._logo.scale);
+      try {
+        this.removeChild(this._logo);
+        this._logo.destroy();
+      } catch (e) {}
+      this._logo = null;
     }
-    this.destroy({ children: true });
+
+    // Stop any tweens on progress visuals
+    gsap.killTweensOf(this._progressBar);
+    gsap.killTweensOf(this._progressBg);
   }
 }

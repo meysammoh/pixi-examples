@@ -108,4 +108,28 @@ public static async changeScene(
     this.currentScene?.update(ticker.deltaTime);
     this.loadingScene?.update(ticker.deltaTime);
   }
+
+  /**
+   * Gracefully shutdown the scene manager: remove ticker and cleanup current scenes.
+   * Call this before destroying the Pixi `Application` to avoid lingering ticker callbacks.
+   */
+  public static shutdown(): void {
+    if (!this._app) return;
+
+    try {
+      this._app.ticker.remove(this.update, this);
+    } catch (e) {
+      // ignore
+    }
+
+    if (this.currentScene) {
+      try { this.currentScene.cleanup(); } catch (e) {}
+      try { this.currentScene.destroy({ children: true }); } catch (e) {}
+      this.currentScene = undefined;
+    }
+
+    if (this.loadingScene) {
+      try { this.loadingScene.destroy({ children: true }); } catch (e) {}
+    }
+  }
 }

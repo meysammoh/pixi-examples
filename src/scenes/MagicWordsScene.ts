@@ -21,6 +21,8 @@ export class MagicWordsScene extends Container implements IScene {
   private _currentIndex = 0;
   private _emojiMap: Record<string, string> = {};
   private _avatarMap: Map<string, AvatarData> = new Map();
+  // Keep track of aliases cached into `Assets.cache` so we can remove them on cleanup
+  private _cachedAliases: string[] = [];
   private _isLoaded = false;
   private _emojiPlaceholder: Texture | null = null;
   private _avatarPlaceholder: Texture | null = null;
@@ -77,6 +79,7 @@ export class MagicWordsScene extends Container implements IScene {
       // Create texture from canvas (data persists until GPU upload)
       const tex = Texture.from(canvas);
       Assets.cache.set(alias, tex);
+      this._cachedAliases.push(alias);
 
       return (Assets.cache.get(alias) as Texture | undefined) ?? null;
     } catch {
@@ -103,6 +106,7 @@ export class MagicWordsScene extends Container implements IScene {
         if (!tex && this._emojiPlaceholder) {
           console.warn(`[MagicWords] Emoji "${e.name}" could not be loaded; using placeholder.`);
           Assets.cache.set(alias, this._emojiPlaceholder);
+          this._cachedAliases.push(alias);
         }
         this._emojiMap[e.name] = alias;
       }
@@ -115,6 +119,7 @@ export class MagicWordsScene extends Container implements IScene {
         if (!tex && this._avatarPlaceholder) {
           console.warn(`[MagicWords] Avatar "${a.name}" could not be loaded; using placeholder.`);
           Assets.cache.set(alias, this._avatarPlaceholder);
+          this._cachedAliases.push(alias);
         }
       }
 
@@ -283,10 +288,30 @@ export class MagicWordsScene extends Container implements IScene {
   }
 
   public cleanup(): void {
+    // Kill animations
     gsap.killTweensOf(this);
     gsap.killTweensOf(this._avatarSprite);
     gsap.killTweensOf(this._continueText);
+
+    // Remove pointer listener
     this.off('pointertap', this._onTap);
+
+    // Remove any textures we cached specifically for this scene from Assets.cache
+    try {
+      for (const alias of this._cachedAliases) {
+        if (Assets.cache.has(alias)) {
+          const val = Assets.cache.get(alias) as Texture | undefined;
+          try {
+            if (val && val !== this._emojiPlaceholder && val !== this._avatarPlaceholder) {
+              val.destroy(true);
+            }
+          } catch (e) {}
+          try { Assets.cache.delete(alias); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    this._cachedAliases = [];
+
     this.destroy({ children: true });
   }
 }
