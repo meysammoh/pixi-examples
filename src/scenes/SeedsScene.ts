@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite, Texture, Filter, GlProgram, defaultFilterV
 import { Howl } from 'howler';
 import { SceneManager, type IScene } from '../SceneManager';
 import { createBackButton } from '../ui/BackButton';
+import { MuteButton } from '../ui/MuteButton';
 
 type SeedState = 'FALLING' | 'FLOATING' | 'SINKING' | 'STACKED' | 'EXPLODED';
 
@@ -69,8 +70,10 @@ export class SeedsScene extends Container implements IScene {
   private magnetActive = false;
   private magnetX = 0;
   private magnetY = 0;
+  private _magnetTimer: number | null = null;
 
-  private spawnInterval: ReturnType<typeof setInterval> | null = null;
+  private _spawnAcc = 0;
+  private readonly SPAWN_INTERVAL = 0.2;
 
   private readonly WATER_LEVEL: number;
   private readonly GROUND_LEVEL: number;
@@ -138,7 +141,6 @@ export class SeedsScene extends Container implements IScene {
     const gTrail = new Graphics().rect(0, 0, 20, 10).fill(0xFFFFFF);
     this.texTrail = SceneManager.app.renderer.generateTexture(gTrail);
 
-    // Audio (do not preload to avoid repeated network retries if server is down)
     this.sfxExplode = new Howl({
       src: ['assets/sfx/explosion.webm', 'assets/sfx/explosion.mp3'],
       volume: 0.5,
@@ -146,7 +148,6 @@ export class SeedsScene extends Container implements IScene {
       onload: () => { this._sfxAvailable = true; },
       onloaderror: () => { this._sfxAvailable = false; }
     });
-    // Try to start loading the sound; availability will be set via callbacks.
     try { this.sfxExplode.load(); } catch (e) {}
 
     // Pointer events
@@ -156,21 +157,20 @@ export class SeedsScene extends Container implements IScene {
       this.magnetActive = true;
       this.magnetX = e.global.x;
       this.magnetY = e.global.y;
-      // schedule magnet off via a short timer stored on the scene so it can be cleared on cleanup
-      if (this._magnetTimeout) clearTimeout(this._magnetTimeout);
-      this._magnetTimeout = setTimeout(() => { this.magnetActive = false; this._magnetTimeout = null; }, 1500);
+      // schedule magnet off via update-driven timer so cleanup can cancel it safely
+      this._magnetTimer = 1.5; // seconds
     };
     this.waterBg.on('pointerdown', this._onWaterDown);
 
-    // internal magnet timeout handle so we can cancel on cleanup
-
-    // Spawn seeds (kept as interval for simplicity) - seeds will be pooled
-    this.spawnInterval = setInterval(() => this.spawnSeed(), 200);
+    // Spawn seeds will be handled in update via accumulator
 
     // Instructions
     this.createInstructions();
 
-    // Back button (added last for proper z-order)
+    const muteBtn = new MuteButton();
+    muteBtn.position.set(SceneManager.width - 80, 90);
+    this.addChild(muteBtn);
+
     this.addChild(createBackButton());
   }
 
@@ -204,7 +204,6 @@ export class SeedsScene extends Container implements IScene {
   }
 
   private _onWaterDown: ((e: any) => void) | null = null;
-  private _magnetTimeout: any = null;
 
   /** Release a seed back to the pool */
   private releaseSeed(s: Seed): void {
@@ -248,15 +247,55 @@ export class SeedsScene extends Container implements IScene {
     try {
       if (t.rope.parent) t.rope.parent.removeChild(t.rope);
     } catch (e) {}
-    // Keep `points` array intact so reused trails have valid Point objects.
-    // Reset rope tint/visibility as a lightweight reset.
     try { t.rope.alpha = 0; } catch (e) {}
+    // remove from activeTrails if present to avoid stale references
+    const idx = this.activeTrails.indexOf(t);
+    if (idx !== -1) this.activeTrails.splice(idx, 1);
     this._trailPool.push(t);
+  }
+
+  /** Find all seeds connected (nearby) to a starting seed */
+  private collectConnectedGroup(start: Seed, threshold = 20): Seed[] {
+    const group: Seed[] = [];
+    const visited = new Set<Seed>();
+    const stack: Seed[] = [start];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      group.push(cur);
+      for (const other of this.seeds) {
+        if (other === cur) continue;
+        if (visited.has(other)) continue;
+        const dx = Math.abs(other.x - cur.x);
+        const dy = Math.abs(other.y - cur.y);
+        if (dx < threshold && dy < threshold) {
+          stack.push(other);
+        }
+      }
+    }
+    return group;
   }
 
   public update(delta: number): void {
     this.time += delta * 0.05;
     this.waterFilter.resources.uniforms.uniforms.uTime = this.time;
+
+    // spawn accumulator (seconds-based)
+    this._spawnAcc += delta * (1 / 60);
+    if (!this._isRestarting && this._spawnAcc >= this.SPAWN_INTERVAL) {
+      this._spawnAcc -= this.SPAWN_INTERVAL;
+      this.spawnSeed();
+    }
+
+    // update-driven magnet timer (delta is in frames; convert to seconds)
+    if (this._magnetTimer != null) {
+      this._magnetTimer -= delta * (1 / 60);
+      if (this._magnetTimer <= 0) {
+        this.magnetActive = false;
+        this._magnetTimer = null;
+      }
+    }
 
     let gatheredCount = 0;
     const gatheredSeeds: Seed[] = [];
@@ -324,21 +363,29 @@ export class SeedsScene extends Container implements IScene {
       }
     }
 
-    // Explosion when 10+ gathered
+    // Explosion when 10+ gathered: explode entire connected clusters
     if (gatheredCount >= 10) {
-      if (this._sfxAvailable === false) {
-        // known-bad: skip
-      } else {
+      // compute union of connected groups starting from each gathered seed
+      const toExplode = new Set<Seed>();
+      for (const gs of gatheredSeeds) {
+        const group = this.collectConnectedGroup(gs, 20);
+        for (const g of group) toExplode.add(g);
+      }
+
+      if (this._sfxAvailable !== false) {
         try { this.sfxExplode.play(); } catch (e) {}
       }
 
-      for (const s of gatheredSeeds) {
+      for (const s of toExplode) {
+        if (s.state === 'EXPLODED') continue;
         s.state = 'EXPLODED';
         const angle = Math.random() * Math.PI * 2;
         s.vx = Math.cos(angle) * 15;
         s.vy = Math.sin(angle) * 15;
-        s.trail = this.getTrail(s);
-        this.activeTrails.push(s.trail);
+        if (!s.trail) {
+          s.trail = this.getTrail(s);
+          this.activeTrails.push(s.trail);
+        }
         s.tint = 0xFFFFFF;
       }
       this.magnetActive = false;
@@ -358,12 +405,8 @@ export class SeedsScene extends Container implements IScene {
     if (stackedCount >= this.FULL_STACK_THRESHOLD && !this._isRestarting) {
       this._isRestarting = true;
 
-      // Disable magnet and stop spawning
+      // Disable magnet and stop spawning (spawn is now handled by accumulator)
       this.magnetActive = false;
-      if (this.spawnInterval) {
-        clearInterval(this.spawnInterval);
-        this.spawnInterval = null;
-      }
 
       // Explode all remaining seeds to create a visual cleanup
       try {
@@ -397,17 +440,13 @@ export class SeedsScene extends Container implements IScene {
   public resize(_width: number, _height: number): void {}
 
   public cleanup(): void {
-    if (this.spawnInterval) {
-      clearInterval(this.spawnInterval);
-      this.spawnInterval = null;
-    }
-    // Remove pointer listener and cancel magnet timeout
+    // spawn accumulator handles spawning; nothing to clear here
+    // Remove pointer listener and cancel magnet timer
     try {
       if (this._onWaterDown) this.waterBg.off('pointerdown', this._onWaterDown);
     } catch (e) {}
-    if (this._magnetTimeout) {
-      clearTimeout(this._magnetTimeout);
-      this._magnetTimeout = null;
+    if (this._magnetTimer != null) {
+      this._magnetTimer = null;
     }
     if (this._restartTimeout) {
       clearTimeout(this._restartTimeout);
