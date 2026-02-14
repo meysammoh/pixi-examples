@@ -28,22 +28,22 @@
   "avatars": [
     {
       "name": "Red",
-      "url": "https://api.dicebear.com/9.x/personas/png?body=squared&clothingColor=ff4f67&eyes=happy&hair=long&hairColor=f29c65&mouth=smile&nose=smallRound&skinColor=e5a07e",
+      "url": "https://api.dicebear.com/9.x/avataaars/png?seed=Kimberly&size=128",
       "position": "left"
     },
     {
       "name": "Grandma",
-      "url": "https://api.dicebear.com/9.x/personas/png?body=round&clothingColor=8b5e3c&eyes=closed&hair=short&hairColor=9e7b6b&mouth=smile&nose=smallRound&skinColor=e5a07e",
+      "url": "https://api.dicebear.com/9.x/personas/png?seed=old-woman&size=128",
       "position": "right"
     },
     {
       "name": "Wolf",
-      "url": "https://api.dicebear.com/9.x/personas/png?body=squared&clothingColor=2c2c2c&eyes=smirk&hair=wild&hairColor=2c2c2c&mouth=smirk&nose=smallRound&skinColor=8d7f6e",
+      "url": "https://api.dicebear.com/9.x/bottts/png?seed=Valentina&size=128",
       "position": "right"
     },
     {
       "name": "Woodcutter",
-      "url": "https://api.dicebear.com/9.x/personas/png?body=checkered&clothingColor=6dbb58&eyes=open&hair=shortCombover&hairColor=362c47&mouth=smile&nose=mediumRound&skinColor=d78774",
+      "url": "https://api.dicebear.com/9.x/personas/png?seed=Woodcutter",
       "position": "left"
     }
   ]
